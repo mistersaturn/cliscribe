@@ -4,4 +4,4 @@
 #+date:  Wed Apr 2 2025
 
 cliScribe is a very small, quick and dirty text file viewing/appending application written in Go.\\
-Think "cat" for text files with the ability to add strings!
+Think #+BEGIN_SRC shell "cat" #+END_SRC for text files with the ability to add strings!
