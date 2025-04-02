@@ -13,7 +13,7 @@ import (
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\n๛ cliScribe -- 0 . 0 . 1\n")
+	fmt.Print("\n๛ cliScribe -- 1.1.0\n")
 	fmt.Print("\nOpen File\n->")
 	filename, _ := reader.ReadString('\n')
 	filename = strings.TrimSpace(filename)
