@@ -1,124 +1,94 @@
 package main
 
-// IMPORTS
-
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
-// MAIN
+// STYLES
+var (
+	titleStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#000000")).
+		Background(lipgloss.Color("#3ca4d8")).
+		Align(lipgloss.Center).
+		Width(45)
 
-func main() {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\n๛ cliScribe -- 1.2.0\n")
-	fmt.Print("\nOpen File\n-> ")
-	filename, _ := reader.ReadString('\n')
-	filename = strings.TrimSpace(filename)
+	accentStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#000000")).
+		Background(lipgloss.Color("#9C999A")).
+		Align(lipgloss.Center).
+		Width(45)
 
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
+	errorStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#D54E53")).
+		Align(lipgloss.Center).
+		Width(45)
+)
 
-	printFileContents(file)
-
-	fmt.Println("\nEnter New Text -> (Type ':H' for Help)\n")
-	handleUserInput(file, reader)
-
-	fmt.Println("Saved.")
+// MODEL
+type Model struct {
+	lines []string
 }
 
-// printFileContents reads and prints the contents of the file
-func printFileContents(file *os.File) {
-	file.Seek(0, 0) // Reset file pointer to the beginning
-	scanner := bufio.NewScanner(file)
-	fmt.Println("----------------------")
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-}
-
-// handleUserInput processes user input for adding text and managing lines
-func handleUserInput(file *os.File, reader *bufio.Reader) {
-	var input string
-	for {
-		input, _ = reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == ":S" {
-			break
-		} else if strings.HasPrefix(input, ":C ") {
-			copyLine(file, input[3:])
-		} else if strings.HasPrefix(input, ":D ") {
-			deleteLine(file, input[3:])
-		} else if input == ":H" {
-			fmt.Println("Save: ':S' Copy: ':C <line num>' Delete: ':D <line num>'")
-		} else {
-			_, err := file.WriteString(input + "\n")
-			if err != nil {
-				fmt.Println("Error writing to file:", err)
-			}
+// UPDATE
+// Handle hotkeys here:
+func Update(model *Model, command string) {
+	switch {
+	case strings.HasPrefix(command, ":C "):
+		copyLine(model, command[3:])
+	case strings.HasPrefix(command, ":D "):
+		deleteLine(model, command[3:])
+	case command == ":H":
+		displayHelp()
+	default:
+		if command != ":S" { // Prevent saving ':S' to file
+			model.lines = append(model.lines, command)
 		}
 	}
 }
 
-// copyLine duplicates a line in the file based on the provided line number
-func copyLine(file *os.File, lineNumberStr string) {
-	lineNumber, err := strconv.Atoi(strings.TrimSpace(lineNumberStr))
-	if err != nil {
-		fmt.Println("Invalid line number:", lineNumberStr)
-		return
-	}
-
-	lines, err := readLines(file)
-	if err != nil {
-		fmt.Println("Error reading lines:", err)
-		return
-	}
-
-	if lineNumber < 1 || lineNumber > len(lines) {
-		fmt.Println("Line number out of range.")
-		return
-	}
-
-	lineToCopy := lines[lineNumber-1]
-	_, err = file.WriteString(lineToCopy + "\n")
-	if err != nil {
-		fmt.Println("Error writing copied line:", err)
-	}
+// displayHelp shows the available commands
+func displayHelp() {
+	fmt.Println("Save: ':S' Copy: ':C <line num>' Delete: ':D <line num>'")
 }
 
-// deleteLine removes a line from the file based on the provided line number
-func deleteLine(file *os.File, lineNumberStr string) {
+// copyLine duplicates a line in the model based on the provided line number
+func copyLine(model *Model, lineNumberStr string) {
 	lineNumber, err := strconv.Atoi(strings.TrimSpace(lineNumberStr))
-	if err != nil {
-		fmt.Println("Invalid line number:", lineNumberStr)
+	if err != nil || lineNumber < 1 || lineNumber > len(model.lines) {
+		fmt.Println(errorStyle.Render("Invalid line number:", lineNumberStr))
 		return
 	}
+	lineToCopy := model.lines[lineNumber-1]
+	model.lines = append(model.lines, lineToCopy)
+}
 
-	lines, err := readLines(file)
-	if err != nil {
-		fmt.Println("Error reading lines:", err)
+// deleteLine removes a line from the model based on the provided line number
+func deleteLine(model *Model, lineNumberStr string) {
+	lineNumber, err := strconv.Atoi(strings.TrimSpace(lineNumberStr))
+	if err != nil || lineNumber < 1 || lineNumber > len(model.lines) {
+		fmt.Println(errorStyle.Render("Invalid line number:", lineNumberStr))
 		return
 	}
+	model.lines = append(model.lines[:lineNumber-1], model.lines[lineNumber:]...)
+}
 
-	if lineNumber < 1 || lineNumber > len(lines) {
-		fmt.Println("Line number out of range.")
-		return
-	}
-
-	lines = append(lines[:lineNumber-1], lines[lineNumber:]...) // Remove the line
-	file.Truncate(0) // Clear the file
-	file.Seek(0, 0)  // Reset file pointer to the beginning
-	for _, line := range lines {
-		_, err = file.WriteString(line + "\n")
-		if err != nil {
-			fmt.Println("Error writing remaining lines:", err)
+// saveToFile writes the model's lines to the specified file
+func saveToFile(file *os.File, model *Model) {
+	file.Truncate(0)
+	file.Seek(0, 0)
+	for _, line := range model.lines {
+		if _, err := file.WriteString(line + "\n"); err != nil {
+			fmt.Println(errorStyle.Render("Error saving file."), err)
+			return
 		}
 	}
 }
@@ -126,10 +96,55 @@ func deleteLine(file *os.File, lineNumberStr string) {
 // readLines reads all lines from the file and returns them as a slice
 func readLines(file *os.File) ([]string, error) {
 	var lines []string
-	file.Seek(0, 0) // Reset file pointer to the beginning
+	file.Seek(0, 0)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
 	return lines, scanner.Err()
+}
+
+// VIEW
+// printFileContents displays the contents of the model
+func printFileContents(model *Model) {
+	fmt.Println(accentStyle.Render("----------------------"))
+	for _, line := range model.lines {
+		fmt.Println(line)
+	}
+}
+
+// MAIN
+func main() {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println(titleStyle.Render("cliScribe -- 1.3.0"))
+	fmt.Print("\nOpen File\n-> ")
+	filename, _ := reader.ReadString('\n')
+	filename = strings.TrimSpace(filename)
+
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		fmt.Println(errorStyle.Render("Error opening file:"), err)
+		return
+	}
+	defer file.Close()
+
+	model := &Model{}
+	if model.lines, err = readLines(file); err != nil {
+		fmt.Println(errorStyle.Render("Error reading file:"), err)
+		return
+	}
+	printFileContents(model)
+
+	fmt.Println(accentStyle.Render("Enter New Text -> (Type ':H' for Help)"))
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		Update(model, input)
+		// Save file:
+		if input == ":S" {
+			saveToFile(file, model)
+			fmt.Println("Saved.")
+			break
+		}
+	}
 }
