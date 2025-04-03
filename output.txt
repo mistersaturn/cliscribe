@@ -1,8 +1,11 @@
-TEST
 TEST!!
-TEST!!!
-1
 2
 3
 TESTING...
 ONE TWO THREE
+COPY WORKS!
+Here's proof:
+TEST!!
+... and now there's help!
+1 seems to be missing, though
+it must have been deleted?
