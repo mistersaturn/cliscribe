@@ -48,10 +48,8 @@ func Update(model *Model, command string) {
 		deleteLine(model, command[3:])
 	case command == ":H":
 		displayHelp()
-	default:
-		if command != ":S" { // Prevent saving ':S' to file
-			model.lines = append(model.lines, command)
-		}
+	case command != ":S": // Prevent saving ':S' to file
+		model.lines = append(model.lines, command)
 	}
 }
 
@@ -108,15 +106,15 @@ func readLines(file *os.File) ([]string, error) {
 // printFileContents displays the contents of the model
 func printFileContents(model *Model) {
 	fmt.Println(accentStyle.Render("----------------------"))
-	for _, line := range model.lines {
-		fmt.Println(line)
+	for i, line := range model.lines {
+		fmt.Printf("%d-- %s\n", i+1, line) // Added line numbers
 	}
 }
 
 // MAIN
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println(titleStyle.Render("cliScribe -- 1.3.0"))
+	fmt.Println(titleStyle.Render("cliScribe -- 2.0.0"))
 	fmt.Print("\nOpen File\n-> ")
 	filename, _ := reader.ReadString('\n')
 	filename = strings.TrimSpace(filename)
